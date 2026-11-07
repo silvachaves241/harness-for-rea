@@ -550,6 +550,9 @@ export async function delegate(
       if (task && offered.length)
         stopWatching = watchAskChannel(askDir(ws.runDir), (c) => calls.run(() => task.fromSpecialist(c, offered, step.id)), 100, TOOL_CALLS)
       result = await session.send(renderPrompt(pkg, open))
+      if (!result.text.trim()) {
+        throw new SpecialistError("failed", "The specialist returned an empty report.")
+      }
       check = readContract(result.text)
       // A contract that fails goes back to the specialist in the same session, a bounded number of times (R1.3).
       for (let round = 1; "problems" in check && round <= CONTRACT_ROUNDS; round++) {
@@ -558,6 +561,9 @@ export async function delegate(
           round,
         })
         result = await session.send(contractFeedback(check.problems))
+        if (!result.text.trim()) {
+          throw new SpecialistError("failed", "The specialist returned an empty report on contract correction.")
+        }
         check = readContract(result.text)
       }
     } finally {
