@@ -156,4 +156,9 @@ describe("a delegation on a provider", () => {
     settings = { ...settings, specialistModel: " " }
     await expect(delegate(deps(), { taskId, sourceRoot: root, pkg: pkg() })).rejects.toThrow(/Choose the specialist's model/)
   })
+
+  it("fails immediately when the specialist returns an empty report rather than looping contract feedback", async () => {
+    replies = [{ content: "   " }]
+    await expect(delegate(deps(), { taskId, sourceRoot: root, pkg: pkg() })).rejects.toThrow(/The specialist returned an empty report/)
+  })
 })

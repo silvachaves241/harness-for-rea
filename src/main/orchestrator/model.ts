@@ -281,6 +281,12 @@ export function enforceResponsesCompletionStream(body: ReadableStream<Uint8Array
             const parsed = JSON.parse(dataStr)
             const type = parsed.type || parsed.event
             if (type === "response.completed") {
+              if (parsed.response?.status === "incomplete") {
+                const reason = parsed.response?.incomplete_details?.reason ?? "response.incomplete"
+                terminalError = new Error(`${label} stream incomplete: ${reason}`)
+                controller.error(terminalError)
+                return
+              }
               completed = true
             } else if (type === "response.failed" || type === "error") {
               const reason = parsed.response?.error?.message ?? parsed.error?.message ?? "response.failed"

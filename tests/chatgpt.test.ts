@@ -1055,6 +1055,16 @@ describe("ChatGPT / Codex OAuth provider with token sharing (ADR 0030, Issue #2)
           return new Response(incompleteSse, { headers: { "Content-Type": "text/event-stream" } })
         }
         await expect(model.invoke("test")).rejects.toThrow(/ChatGPT Responses stream incomplete: max_output_tokens/i)
+
+        // 3. response.completed carrying status "incomplete"
+        globalThis.fetch = async () => {
+          const completedIncompleteSse = [
+            'data: {"type":"response.created","response":{"id":"resp_comp_inc"}}\n\n',
+            'data: {"type":"response.completed","response":{"id":"resp_comp_inc","status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[]}}\n\n',
+          ].join("")
+          return new Response(completedIncompleteSse, { headers: { "Content-Type": "text/event-stream" } })
+        }
+        await expect(model.invoke("test")).rejects.toThrow(/ChatGPT Responses stream incomplete: max_output_tokens/i)
       } finally {
         globalThis.fetch = originalFetch
       }

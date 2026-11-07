@@ -70,7 +70,20 @@ export function classifyAgentFailure(e: unknown, provider: string): SpecialistEr
 function textOf(m: BaseMessage | undefined): string {
   const c = m?.content
   if (typeof c === "string") return c
-  return Array.isArray(c) ? c.map((p) => (typeof p === "string" ? p : p?.type === "text" ? String((p as { text?: unknown }).text ?? "") : "")).join("") : ""
+  if (!Array.isArray(c)) return ""
+  return c
+    .map((p) => {
+      if (typeof p === "string") return p
+      if (p && typeof p === "object") {
+        const part = p as { type?: string; text?: unknown; output_text?: unknown }
+        if (typeof part.text === "string") return part.text
+        if (typeof part.output_text === "string") return part.output_text
+        if (part.type === "text" && part.text !== undefined) return String(part.text ?? "")
+        if (part.type === "output_text" && part.text !== undefined) return String(part.text ?? "")
+      }
+      return ""
+    })
+    .join("")
 }
 
 function cut(text: string, limit: number) {
@@ -346,7 +359,15 @@ export class AgentSpecialist implements Specialist {
         recursionLimit: RECURSION_LIMIT,
       })) as { messages?: BaseMessage[] }
       if (this.failure) throw this.failure
-      const answer = clean(textOf([...(out.messages ?? [])].reverse().find((m) => AIMessage.isInstance(m)))).trim()
+      const lastAi = [...(out.messages ?? [])].reverse().find((m) => AIMessage.isInstance(m))
+      const answer = clean(textOf(lastAi)).trim()
+      if (!answer && lastAi) {
+        const respMeta = (lastAi as any).response_metadata
+        const incReason = respMeta?.incomplete_details?.reason
+        if (respMeta?.status === "incomplete" || incReason) {
+          throw new SpecialistError("failed", `${this.o.provider}: the specialist model output was incomplete (${incReason ?? "truncated"}).`)
+        }
+      }
       const r: StreamResult = {
         text: answer,
         error: false,
